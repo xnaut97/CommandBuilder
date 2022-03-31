@@ -17,7 +17,13 @@ public class MainClass extends JavaPlugin {
     @Override
     public void onEnable() {
         //You can use Arrays.asList(...) or new ArrayList<>(...)
-        this.exampleCommand = new AbstractCommand(yourMainClass, "example", "example command", "/<command>", Arrays.asList("alias1", "alias2"))
+        this.exampleCommand = new AbstractCommand(
+                yourMainClass, //Your main class
+                "example", //Command name
+                "example command", //Command description
+                "/<command>", //Command usage
+                Arrays.asList("alias1", "alias2")) //Command aliases
+                //Add sub command
                 .addSubCommand(new YourSubCommand1(), new YourSubCommand2())
                 //You don't need to use color code '§' , i already parse it inside
                 .setNoConsoleAllowMeessage("&cOnly player can execute this command")
