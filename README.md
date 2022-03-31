@@ -27,7 +27,7 @@ public class MainClass extends JavaPlugin {
     public void onEnable() {
         //You can use Arrays.asList(...) or new ArrayList<>(...)
         this.exampleCommand = new AbstractCommand(
-                yourMainClass, //Your main class
+                plugin, //Your main class
                 "example", //Command name
                 "example command", //Command description
                 "/<command>", //Command usage
