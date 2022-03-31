@@ -19,6 +19,9 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+/**
+ * @author TezVN
+ */
 public class AbstractCommand extends BukkitCommand {
 
     private final JavaPlugin plugin;
@@ -55,14 +58,14 @@ public class AbstractCommand extends BukkitCommand {
                 }).findAny();
 
                 if (!optCommand.isPresent()) {
-                    sender.sendMessage(this.getNoSubCommandFoundMessage());
+                    sender.sendMessage(this.noSubCommandFoundMessage);
                     return true;
                 }
 
                 SubCommand command = optCommand.get();
 
                 if (!command.allowConsole()) {
-                    sender.sendMessage(this.getNoConsoleAllowMessage());
+                    sender.sendMessage(this.noConsoleAllowMessage);
                     return true;
                 }
 
@@ -84,13 +87,13 @@ public class AbstractCommand extends BukkitCommand {
             }).findAny();
 
             if (!optCommand.isPresent()) {
-                sender.sendMessage(this.getNoSubCommandFoundMessage());
+                sender.sendMessage(this.noSubCommandFoundMessage);
                 return true;
             }
 
             SubCommand command = optCommand.get();
-            if (!player.hasPermission(command.getPermissions())) {
-                sender.sendMessage(this.getNoPermissionsMessage());
+            if (!player.hasPermission(command.getPermission())) {
+                sender.sendMessage(this.noPermissionsMessage);
                 return true;
             }
 
@@ -105,8 +108,15 @@ public class AbstractCommand extends BukkitCommand {
         return new CommandCompleter(this).onTabComplete(sender, alias, args);
     }
 
+    /**
+     * Add sub command to your main command
+     *
+     * @param commands Sub command to add
+     */
     public AbstractCommand addSubCommand(SubCommand... commands) {
-        this.subCommands.addAll(Arrays.asList(commands));
+        List<SubCommand> filter = Arrays.asList(commands).stream()
+                .filter(c -> !isRegistered(c)).collect(Collectors.toList());
+        this.subCommands.addAll(filter);
         return this;
     }
 
@@ -114,6 +124,9 @@ public class AbstractCommand extends BukkitCommand {
         return this.subCommands.stream().anyMatch(c -> c.getName().equals(command.getName()));
     }
 
+    /**
+     * Register command to server in {@code onEnable()} method
+     */
     public AbstractCommand register() {
         try {
             if (!getKnownCommands().containsKey(getName())) {
@@ -133,6 +146,9 @@ public class AbstractCommand extends BukkitCommand {
         return this;
     }
 
+    /**
+     * Unregister command from server in {@code onDisable()} method
+     */
     public AbstractCommand unregister() {
         try {
             unregister(getCommandMap());
@@ -143,14 +159,14 @@ public class AbstractCommand extends BukkitCommand {
         return this;
     }
 
-    public CommandMap getCommandMap() throws Exception {
+    private CommandMap getCommandMap() throws Exception {
         Field field = Bukkit.getServer().getClass().getDeclaredField("commandMap");
         field.setAccessible(true);
         return (CommandMap) field.get(Bukkit.getServer());
     }
 
     @SuppressWarnings("unchecked")
-    public Map<String, Command> getKnownCommands() throws Exception {
+    private Map<String, Command> getKnownCommands() throws Exception {
         Field cmField = Bukkit.getServer().getClass().getDeclaredField("commandMap");
         cmField.setAccessible(true);
         CommandMap cm = (CommandMap) cmField.get(Bukkit.getServer());
@@ -159,59 +175,106 @@ public class AbstractCommand extends BukkitCommand {
         return (Map<String, Command>) method.invoke(cm, new Object[]{});
     }
 
-
-    public String getNoPermissionsMessage() {
-        return noPermissionsMessage;
-    }
-
+    /**
+     * Set message when player don't have permission to access to sub command
+     *
+     * @param noPermissionsMessage Message to set
+     */
     public AbstractCommand setNoPermissionsMessage(String noPermissionsMessage) {
         this.noPermissionsMessage = noPermissionsMessage.replace("&", "§");
         return this;
     }
 
-    public String getNoSubCommandFoundMessage() {
-        return noSubCommandFoundMessage;
-    }
-
+    /**
+     * Set message when player's input match no sub command
+     *
+     * @param noSubCommandFoundMessage Message to set
+     */
     public AbstractCommand setNoSubCommandFoundMessage(String noSubCommandFoundMessage) {
         this.noSubCommandFoundMessage = noSubCommandFoundMessage.replace("&", "§");
         return this;
     }
 
-    public String getNoConsoleAllowMessage() {
-        return noConsoleAllowMessage;
-    }
-
+    /**
+     * Set message when command is not allowed for console to use
+     *
+     * @param noConsoleAllowMessage Message to set
+     */
     public AbstractCommand setNoConsoleAllowMessage(String noConsoleAllowMessage) {
         this.noConsoleAllowMessage = noConsoleAllowMessage.replace("&", "§");
         return this;
     }
 
+    /**
+     * Get list of registered sub commands
+     *
+     * @return List of sub commands
+     */
     public List<SubCommand> getSubCommands() {
         return subCommands;
     }
+
 
     public static abstract class SubCommand {
 
         public SubCommand() {
         }
 
+        /**
+         * Get name of sub command
+         *
+         * @return Sub command name
+         */
         public abstract String getName();
 
-        public abstract String getPermissions();
+        /**
+         * Get permission of sub command
+         *
+         * @return Sub command permission
+         */
+        public abstract String getPermission();
 
+        /**
+         * Get description of sub command
+         *
+         * @return Sub command description
+         */
         public abstract String getDescription();
 
+        /**
+         * Get usage of sub command
+         *
+         * @return Sub command usage
+         */
         public abstract String getUsage();
 
+        /**
+         * Get list of aliases of sub command
+         *
+         * @return Sub command aliases
+         */
         public abstract List<String> getAliases();
 
+        /**
+         * Allow console to use this command
+         *
+         * @return True if allow, otherwise false
+         */
         public abstract boolean allowConsole();
 
+        /**
+         * Player execution
+         */
         public abstract void playerExecute(CommandSender sender, String[] args);
 
+        /**
+         * Console execution
+         */
         public abstract void consoleExecute(CommandSender sender, String[] args);
 
+        /**
+         * Tab complete for sub command
+         */
         public abstract List<String> tabComplete(CommandSender sender, String[] args);
     }
 
@@ -228,9 +291,9 @@ public class AbstractCommand extends BukkitCommand {
                         @Override
                         public boolean test(SubCommand command) {
                             if (start.length() < 1) {
-                                return sender.hasPermission(command.getPermissions());
+                                return sender.hasPermission(command.getPermission());
                             } else {
-                                return command.getName().startsWith(start) && sender.hasPermission(command.getPermissions());
+                                return command.getName().startsWith(start) && sender.hasPermission(command.getPermission());
                             }
                         }
                     })
@@ -241,7 +304,7 @@ public class AbstractCommand extends BukkitCommand {
         private List<String> getSubSuggestions(CommandSender sender, String[] args) {
             Optional<SubCommand> optCommand = this.commands.stream()
                     .filter(command -> command.getName().equalsIgnoreCase(args[0])
-                            && sender.hasPermission(command.getPermissions()))
+                            && sender.hasPermission(command.getPermission()))
                     .findAny();
 
             return optCommand.map(subCommand -> subCommand.tabComplete(sender, args)).orElse(null);
