@@ -1,7 +1,7 @@
 # ❏ General
 
 Register/unregister command at runtime without writing in ``plugin.yml``
-Spigot post: https://www.spigotmc.org/threads/commandbuilder-register-unregister-command-at-runtime.551946/
+<br>Spigot post: [a link](https://www.spigotmc.org/threads/commandbuilder-register-unregister-command-at-runtime.551946/)
 ***
 
 # ❏ Installation
