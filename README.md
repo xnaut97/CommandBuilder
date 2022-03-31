@@ -1,12 +1,18 @@
-# Installation
+# ❏ General
+
+Register/unregister command at runtime without writing in ``plugin.yml``
+***
+
+# ❏ Installation
 
 Copy and paste `AbstractCommand.java` to your project
+***
 
-# Instruction
+# ❏ Instruction
 
 You can register directly in **onEnable()** method or create a manager and then register all together
 <br>
-***
+
 **Main Command**
 
 ```java
@@ -45,7 +51,7 @@ public class MainClass extends JavaPlugin {
 }
 ```
 
-***
+
 **Sub Command**
 
 ```java
