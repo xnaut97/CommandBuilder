@@ -32,7 +32,7 @@ public class MainClass extends JavaPlugin {
                 //Add sub command
                 .addSubCommand(new YourSubCommand1(), new YourSubCommand2())
                 //You don't need to use color code '§' , i already parse it inside
-                .setNoConsoleAllowMeessage("&cOnly player can execute this command")
+                .setNoConsoleAllowMessage("&cOnly player can execute this command")
                 //When player don't have permission to use sub command
                 .setNoPermissionsMessage("&cYou don't have permission to use this command")
                 //When player's input not match any sub command
