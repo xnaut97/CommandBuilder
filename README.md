@@ -11,7 +11,9 @@ Copy and paste `AbstractCommand.java` to your project
 
 # ❏ Instruction
 
-You can register directly in **onEnable()** method or create a manager and then register all together
+You can register directly in **onEnable()** method
+<br>or 
+<br>create a manager and then register all together (recommend)
 <br>
 
 **Main Command**
@@ -56,11 +58,6 @@ public class MainClass extends JavaPlugin {
 **Sub Command**
 
 ```java
-import org.bukkit.Bukkit;
-import your.path.AbstractCommand.SubCommand;
-
-import java.util.stream.Collectors;
-
 public class YourSubCommand extends SubCommand {
 
     public YourSubCommand() {
@@ -103,7 +100,7 @@ public class YourSubCommand extends SubCommand {
         //Check length
         if (args.length == 1) {
             // [/example sub_command_name] will trigger this
-            sender.sendMessage("Hello, player {name}!");
+            sender.sendMessage("Hello, player!");
             return;
         }
         //Your execute code
