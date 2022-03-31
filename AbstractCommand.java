@@ -12,10 +12,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -25,6 +22,8 @@ import java.util.stream.Collectors;
 public class AbstractCommand extends BukkitCommand {
 
     private final JavaPlugin plugin;
+
+    private UUID uniqueId;
 
     private List<SubCommand> subCommands;
 
@@ -39,6 +38,7 @@ public class AbstractCommand extends BukkitCommand {
                 aliases.stream()
                         .map(String::toLowerCase)
                         .collect(Collectors.toList()));
+        this.uniqueId = UUID.randomUUID();
         this.plugin = plugin;
         this.subCommands = Lists.newArrayList();
     }
@@ -152,7 +152,10 @@ public class AbstractCommand extends BukkitCommand {
     public AbstractCommand unregister() {
         try {
             unregister(getCommandMap());
-            getKnownCommands().entrySet().removeIf(entry -> entry.getValue() instanceof AbstractCommand);
+            getKnownCommands().entrySet().removeIf(entry ->
+                    entry.getValue() instanceof AbstractCommand
+                            && ((AbstractCommand) entry.getValue()).getUniqueId().equals(this.getUniqueId())
+            );
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -173,6 +176,15 @@ public class AbstractCommand extends BukkitCommand {
         cmField.setAccessible(false);
         Method method = cm.getClass().getDeclaredMethod("getKnownCommands");
         return (Map<String, Command>) method.invoke(cm, new Object[]{});
+    }
+
+    /**
+     * Get unique id of this command
+     *
+     * @return Comamnd unique id
+     */
+    public UUID getUniqueId() {
+        return uniqueId;
     }
 
     /**
