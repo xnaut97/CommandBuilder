@@ -40,6 +40,25 @@ public class MainClass extends JavaPlugin {
                 .setNoPermissionsMessage("&cYou don't have permission to use this command")
                 //When player's input not match any sub command
                 .setNoSubCommandFoundMessage("&cWrong command, use &6/yourCommand help &cto view more!")
+                //Set header and footer for help board.
+                .setHelpHeader("&7-----------------=[ &6&l Your Plugin Name &7]=-----------------")
+                .setHelpFooter("&7-----------------=[ &6&l❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙ &7]=-----------------")
+                .setHelpSuggestions(5)
+                .setHelpCommandColor("&a")    ┐__ //Also support ChatColor enum
+                .setHelpDescriptionColor("7") ┘
+                //The result will like this
+                // -----------------=[ &6&l Your Plugin Name &7]=-----------------
+                // /yourMainCommandName subCommandName: Sub command description.
+                // /yourMainCommandName subCommandName2: Sub command 2 description.
+                // /yourMainCommandName subCommandName3: Sub command 3 description.
+                // /yourMainCommandName subCommandName4: Sub command 4 description.
+                // /yourMainCommandName subCommandName5: Sub command 5 description.
+                //                           Current page
+                //                 Previous page ┐ ↑ ┌ Next page button
+                //                               « 1 »
+                // -----------------=[ &6&l❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙ &7]=-----------------
+                // All buttons are clickable and will lead you to previous/next help page
+                // When click on command will suggest it to player
                 //Register command onEnable() then we're done :)
                 .register();
     }
