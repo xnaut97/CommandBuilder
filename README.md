@@ -43,7 +43,7 @@ public class MainClass extends JavaPlugin {
                 //Set header and footer for help board.
                 .setHelpHeader("&7-----------------=[ &6&l Your Plugin Name &7]=-----------------")
                 .setHelpFooter("&7-----------------=[ &6&l❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙ &7]=-----------------")
-                .setHelpSuggestions(5)
+                .setHelpSuggestions(5) //Amount of sub command will appear when use help command
                 .setHelpCommandColor("&a")    ┐__ //Also support ChatColor enum
                 .setHelpDescriptionColor("7") ┘
                 //The result will like this
