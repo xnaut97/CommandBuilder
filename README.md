@@ -54,7 +54,7 @@ public class MainClass extends JavaPlugin {
                 // /yourMainCommandName subCommandName4: Sub command 4 description.
                 // /yourMainCommandName subCommandName5: Sub command 5 description.
                 //                           Current page
-                //                 Previous page ┐ ↑ ┌ Next page button
+                //          Previous page button ┐ ↑ ┌ Next page button
                 //                               « 1 »
                 // -----------------=[ &6&l❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙❙ &7]=-----------------
                 // All buttons are clickable and will lead you to previous/next help page
