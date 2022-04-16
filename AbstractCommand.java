@@ -1,5 +1,3 @@
-package dev.tezvn.elitechest.commands;
-
 import com.google.common.collect.Lists;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
