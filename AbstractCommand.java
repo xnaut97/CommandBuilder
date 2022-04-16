@@ -1,5 +1,10 @@
 import com.google.common.collect.Lists;
+import dev.tezvn.elitechest.utils.ClickableText;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
@@ -30,6 +35,16 @@ public class AbstractCommand extends BukkitCommand {
     private String noSubCommandFoundMessage;
 
     private String noConsoleAllowMessage;
+
+    private String helpHeader;
+
+    private String helpFooter;
+
+    private String helpCommandColor;
+
+    private String helpDescriptionColor;
+
+    private int helpSuggestions;
 
     public AbstractCommand(JavaPlugin plugin, @NotNull String name, @NotNull String description, @NotNull String usageMessage, @NotNull List<String> aliases) {
         super(name.toLowerCase(), description, usageMessage,
@@ -127,6 +142,7 @@ public class AbstractCommand extends BukkitCommand {
      */
     public AbstractCommand register() {
         try {
+            addSubCommand(new AbstractHelpCommand(this));
             if (!getKnownCommands().containsKey(getName())) {
                 getKnownCommands().put(getName(), this);
                 getKnownCommands().put(plugin.getDescription().getName().toLowerCase() + ":" + getName(), this);
@@ -215,6 +231,61 @@ public class AbstractCommand extends BukkitCommand {
         return this;
     }
 
+    private int getHelpSuggestions() {
+        return helpSuggestions;
+    }
+
+    public AbstractCommand setHelpSuggestions(int helpSuggestions) {
+        this.helpSuggestions = helpSuggestions;
+        if (this.helpSuggestions < 1)
+            return setHelpSuggestions(5);
+        return this;
+    }
+
+    private String getHelpHeader() {
+        return this.helpHeader;
+    }
+
+    public AbstractCommand setHelpHeader(String helpHeader) {
+        this.helpHeader = helpHeader.replace("&", "§");
+        return this;
+    }
+
+    private String getHelpFooter() {
+        return this.helpFooter;
+    }
+
+    public AbstractCommand setHelpFooter(String helpFooter) {
+        this.helpFooter = helpFooter.replace("&", "§");
+        return this;
+    }
+
+    private String getHelpCommandColor() {
+        return helpCommandColor;
+    }
+
+    public AbstractCommand setHelpCommandColor(ChatColor color) {
+        return setHelpCommandColor(String.valueOf(color.getChar()));
+    }
+
+    public AbstractCommand setHelpCommandColor(String color) {
+        this.helpCommandColor = color.replace("&", "§");
+        return this;
+    }
+
+    private String getHelpDescriptionColor() {
+        return helpDescriptionColor;
+    }
+
+    public AbstractCommand setHelpDescriptionColor(ChatColor color) {
+        return setHelpCommandColor(String.valueOf(color.getChar()));
+    }
+
+    public AbstractCommand setHelpDescriptionColor(String color) {
+        this.helpDescriptionColor = color.replace("&", "§");
+        return this;
+    }
+
     /**
      * Get list of registered sub commands
      *
@@ -223,7 +294,6 @@ public class AbstractCommand extends BukkitCommand {
     public List<SubCommand> getSubCommands() {
         return subCommands;
     }
-
 
     public static abstract class SubCommand {
 
@@ -327,6 +397,146 @@ public class AbstractCommand extends BukkitCommand {
                 return this.getSubSuggestions(sender, args);
             }
             return null;
+        }
+    }
+
+    protected static class AbstractHelpCommand extends SubCommand {
+
+        private final List<SubCommand> subCommands;
+
+        private final AbstractCommand handle;
+
+        public AbstractHelpCommand(AbstractCommand handle) {
+            this.handle = handle;
+            this.subCommands = handle.getSubCommands();
+        }
+
+        @Override
+        public String getName() {
+            return "help";
+        }
+
+        @Override
+        public String getPermission() {
+            return "";
+        }
+
+        @Override
+        public String getDescription() {
+            return "Shows available commands.";
+        }
+
+        @Override
+        public String getUsage() {
+            return "&7Syntax: &6/" + handle.getName() + " help <page>";
+        }
+
+        @Override
+        public List<String> getAliases() {
+            return Arrays.asList("?");
+        }
+
+        @Override
+        public boolean allowConsole() {
+            return true;
+        }
+
+        @Override
+        public void playerExecute(CommandSender sender, String[] args) {
+            if (args.length == 1) {
+                handleCommands(sender, 0);
+                return;
+            }
+            int page = getPage(args[1]);
+            handleCommands(sender, page);
+        }
+
+        @Override
+        public void consoleExecute(CommandSender sender, String[] args) {
+            if (args.length == 1) {
+                handleCommands(sender, 0);
+                return;
+            }
+            int page = getPage(args[1]);
+            handleCommands(sender, page);
+        }
+
+        @Override
+        public List<String> tabComplete(CommandSender sender, String[] args) {
+            if (args.length == 2) {
+                int max = handle.getSubCommands().size() / handle.getHelpSuggestions();
+                List<Integer> index = Lists.newArrayList();
+                for (int i = 0; i < max; i++) {
+                    index.add(i);
+                }
+                return index.stream().map(String::valueOf).filter(i -> i.startsWith(args[1])).collect(Collectors.toList());
+            }
+            return null;
+        }
+
+        private int getPage(String str) {
+            try {
+                int page = Integer.parseInt(str);
+                if (page < 0)
+                    return 0;
+                return page;
+            } catch (Exception e) {
+                return 0;
+            }
+        }
+
+        private void handleCommands(CommandSender sender, int page) {
+            List<SubCommand> filter = subCommands.stream()
+                    .filter(c -> sender.hasPermission(c.getPermission()))
+                    .collect(Collectors.toList());
+            int max = Math.min(handle.getHelpSuggestions() * (page + 1), filter.size());
+            if (handle.getHelpHeader() != null)
+                sender.sendMessage(handle.getHelpHeader());
+            for (int i = page * handle.getHelpSuggestions(); i < max; i++) {
+                SubCommand command = filter.get(i);
+                TextComponent clickableCommand = createClickableCommand(command);
+                sender.spigot().sendMessage(clickableCommand);
+            }
+            TextComponent previousPage = createClickableButton("&e&l«",
+                    "/" + handle.getName() + " help " + (page - 1),
+                    "&7Previous page");
+            TextComponent nextPage = createClickableButton("&e&l»",
+                    "/" + handle.getName() + " help " + (page + 1),
+                    "&7Next page");
+            TextComponent pageInfo = createClickableButton(" &e&l" + (page + 1) + " ",
+                    null, "&7You're in page " + (page + 1));
+            ClickableText spacing = new ClickableText("                       ");
+            boolean canNextPage = handle.getHelpSuggestions() * (page + 1) < filter.size();
+            if (page < 1) {
+                if (canNextPage)
+                    sender.spigot().sendMessage(spacing.build(), pageInfo, nextPage);
+                else
+                    sender.spigot().sendMessage(spacing.build(), pageInfo);
+            } else {
+                if (canNextPage)
+                    sender.spigot().sendMessage(spacing.build(), previousPage, pageInfo, nextPage);
+                else
+                    sender.spigot().sendMessage(spacing.build(), previousPage, pageInfo);
+            }
+            if (handle.getHelpFooter() != null)
+                sender.sendMessage(handle.getHelpFooter());
+        }
+
+        private TextComponent createClickableCommand(SubCommand command) {
+            return new ClickableText(handle.getHelpCommandColor() + "/" + command.getName() + ": "
+                    + handle.getHelpDescriptionColor() + command.getDescription())
+                    .setHoverAction(HoverEvent.Action.SHOW_TEXT, "&7Click to get this command.")
+                    .setClickAction(ClickEvent.Action.SUGGEST_COMMAND, "/" + handle.getName() + " " + command.getName())
+                    .build();
+        }
+
+        private TextComponent createClickableButton(String name, String clickAction, String... hoverAction) {
+            ClickableText clickableText = new ClickableText(name);
+            if (hoverAction.length > 0)
+                clickableText.setHoverAction(HoverEvent.Action.SHOW_TEXT, hoverAction);
+            if (clickAction != null)
+                clickableText.setClickAction(ClickEvent.Action.RUN_COMMAND, clickAction);
+            return clickableText.build();
         }
     }
 }
