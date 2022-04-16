@@ -261,7 +261,7 @@ public class AbstractCommand extends BukkitCommand {
     }
 
     private String getHelpCommandColor() {
-        return helpCommandColor;
+        return helpCommandColor == null ? "&a" : this.helpCommandColor;
     }
 
     public AbstractCommand setHelpCommandColor(ChatColor color) {
@@ -274,7 +274,7 @@ public class AbstractCommand extends BukkitCommand {
     }
 
     private String getHelpDescriptionColor() {
-        return helpDescriptionColor;
+        return helpDescriptionColor == null ? "&7" : this.helpDescriptionColor;
     }
 
     public AbstractCommand setHelpDescriptionColor(ChatColor color) {
