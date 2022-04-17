@@ -21,12 +21,12 @@ You can register directly in **onEnable()** method
 ```java
 public class MainClass extends JavaPlugin {
 
-    private AbstractCommand exampleCommand;
+    private CommandBuilder exampleCommand;
 
     @Override
     public void onEnable() {
         //You can use Arrays.asList(...) or new ArrayList<>(...)
-        this.exampleCommand = new AbstractCommand(
+        this.exampleCommand = new CommandBuilder(
                 plugin, //Your main class
                 "example", //Command name
                 "example command", //Command description
