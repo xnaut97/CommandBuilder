@@ -6,7 +6,7 @@ Register/unregister command at runtime without writing in ``plugin.yml``
 
 # ❏ Installation
 
-Copy and paste `AbstractCommand.java` to your project
+Copy and paste `CommandBuilder.java` to your project
 ***
 
 # ❏ Instruction
