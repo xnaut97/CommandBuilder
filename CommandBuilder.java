@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 /**
  * @author TezVN
  */
-public class AbstractCommand extends BukkitCommand {
+public class CommandBuilder extends BukkitCommand {
 
     private final JavaPlugin plugin;
 
@@ -46,7 +46,7 @@ public class AbstractCommand extends BukkitCommand {
 
     private int helpSuggestions;
 
-    public AbstractCommand(JavaPlugin plugin, @NotNull String name, @NotNull String description, @NotNull String usageMessage, @NotNull List<String> aliases) {
+    public CommandBuilder(JavaPlugin plugin, @NotNull String name, @NotNull String description, @NotNull String usageMessage, @NotNull List<String> aliases) {
         super(name.toLowerCase(), description, usageMessage,
                 aliases.stream()
                         .map(String::toLowerCase)
@@ -126,7 +126,7 @@ public class AbstractCommand extends BukkitCommand {
      *
      * @param commands Sub command to add
      */
-    public AbstractCommand addSubCommand(SubCommand... commands) {
+    public CommandBuilder addSubCommand(SubCommand... commands) {
         List<SubCommand> filter = Arrays.asList(commands).stream()
                 .filter(c -> !isRegistered(c)).collect(Collectors.toList());
         this.subCommands.addAll(filter);
@@ -140,7 +140,7 @@ public class AbstractCommand extends BukkitCommand {
     /**
      * Register command to server in {@code onEnable()} method
      */
-    public AbstractCommand register() {
+    public CommandBuilder register() {
         try {
             addSubCommand(new AbstractHelpCommand(this));
             if (!getKnownCommands().containsKey(getName())) {
@@ -163,12 +163,12 @@ public class AbstractCommand extends BukkitCommand {
     /**
      * Unregister command from server in {@code onDisable()} method
      */
-    public AbstractCommand unregister() {
+    public CommandBuilder unregister() {
         try {
             unregister(getCommandMap());
             getKnownCommands().entrySet().removeIf(entry ->
-                    entry.getValue() instanceof AbstractCommand
-                            && ((AbstractCommand) entry.getValue()).getUniqueId().equals(this.getUniqueId())
+                    entry.getValue() instanceof CommandBuilder
+                            && ((CommandBuilder) entry.getValue()).getUniqueId().equals(this.getUniqueId())
             );
         } catch (Exception e) {
             e.printStackTrace();
@@ -206,7 +206,7 @@ public class AbstractCommand extends BukkitCommand {
      *
      * @param noPermissionsMessage Message to set
      */
-    public AbstractCommand setNoPermissionsMessage(String noPermissionsMessage) {
+    public CommandBuilder setNoPermissionsMessage(String noPermissionsMessage) {
         this.noPermissionsMessage = noPermissionsMessage.replace("&", "§");
         return this;
     }
@@ -216,7 +216,7 @@ public class AbstractCommand extends BukkitCommand {
      *
      * @param noSubCommandFoundMessage Message to set
      */
-    public AbstractCommand setNoSubCommandFoundMessage(String noSubCommandFoundMessage) {
+    public CommandBuilder setNoSubCommandFoundMessage(String noSubCommandFoundMessage) {
         this.noSubCommandFoundMessage = noSubCommandFoundMessage.replace("&", "§");
         return this;
     }
@@ -226,7 +226,7 @@ public class AbstractCommand extends BukkitCommand {
      *
      * @param noConsoleAllowMessage Message to set
      */
-    public AbstractCommand setNoConsoleAllowMessage(String noConsoleAllowMessage) {
+    public CommandBuilder setNoConsoleAllowMessage(String noConsoleAllowMessage) {
         this.noConsoleAllowMessage = noConsoleAllowMessage.replace("&", "§");
         return this;
     }
@@ -235,7 +235,7 @@ public class AbstractCommand extends BukkitCommand {
         return helpSuggestions;
     }
 
-    public AbstractCommand setHelpSuggestions(int helpSuggestions) {
+    public CommandBuilder setHelpSuggestions(int helpSuggestions) {
         this.helpSuggestions = helpSuggestions;
         if (this.helpSuggestions < 1)
             return setHelpSuggestions(5);
@@ -246,7 +246,7 @@ public class AbstractCommand extends BukkitCommand {
         return this.helpHeader;
     }
 
-    public AbstractCommand setHelpHeader(String helpHeader) {
+    public CommandBuilder setHelpHeader(String helpHeader) {
         this.helpHeader = helpHeader.replace("&", "§");
         return this;
     }
@@ -255,7 +255,7 @@ public class AbstractCommand extends BukkitCommand {
         return this.helpFooter;
     }
 
-    public AbstractCommand setHelpFooter(String helpFooter) {
+    public CommandBuilder setHelpFooter(String helpFooter) {
         this.helpFooter = helpFooter.replace("&", "§");
         return this;
     }
@@ -264,11 +264,11 @@ public class AbstractCommand extends BukkitCommand {
         return helpCommandColor == null ? "&a" : this.helpCommandColor;
     }
 
-    public AbstractCommand setHelpCommandColor(ChatColor color) {
+    public CommandBuilder setHelpCommandColor(ChatColor color) {
         return setHelpCommandColor(String.valueOf(color.getChar()));
     }
 
-    public AbstractCommand setHelpCommandColor(String color) {
+    public CommandBuilder setHelpCommandColor(String color) {
         this.helpCommandColor = color.replace("&", "§");
         return this;
     }
@@ -277,11 +277,11 @@ public class AbstractCommand extends BukkitCommand {
         return helpDescriptionColor == null ? "&7" : this.helpDescriptionColor;
     }
 
-    public AbstractCommand setHelpDescriptionColor(ChatColor color) {
+    public CommandBuilder setHelpDescriptionColor(ChatColor color) {
         return setHelpCommandColor(String.valueOf(color.getChar()));
     }
 
-    public AbstractCommand setHelpDescriptionColor(String color) {
+    public CommandBuilder setHelpDescriptionColor(String color) {
         this.helpDescriptionColor = color.replace("&", "§");
         return this;
     }
@@ -362,7 +362,7 @@ public class AbstractCommand extends BukkitCommand {
 
         private List<SubCommand> commands;
 
-        protected CommandCompleter(AbstractCommand handle) {
+        protected CommandCompleter(CommandBuilder handle) {
             this.commands = handle.getSubCommands();
         }
 
@@ -404,9 +404,9 @@ public class AbstractCommand extends BukkitCommand {
 
         private final List<SubCommand> subCommands;
 
-        private final AbstractCommand handle;
+        private final CommandBuilder handle;
 
-        public AbstractHelpCommand(AbstractCommand handle) {
+        public AbstractHelpCommand(CommandBuilder handle) {
             this.handle = handle;
             this.subCommands = handle.getSubCommands();
         }
@@ -523,7 +523,7 @@ public class AbstractCommand extends BukkitCommand {
         }
 
         private TextComponent createClickableCommand(SubCommand command) {
-            return new ClickableText(handle.getHelpCommandColor() + "/" + command.getName() + ": "
+            return new ClickableText(handle.getHelpCommandColor() + "/" + handle.getName() + " " + command.getName() + ": "
                     + handle.getHelpDescriptionColor() + command.getDescription())
                     .setHoverAction(HoverEvent.Action.SHOW_TEXT, "&7Click to get this command.")
                     .setClickAction(ClickEvent.Action.SUGGEST_COMMAND, "/" + handle.getName() + " " + command.getName())
