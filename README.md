@@ -88,7 +88,7 @@ public class YourSubCommand extends SubCommand {
 
     @Override
     public String getName() {
-        return "sub_command_name";
+        return "subCommandName";
     }
 
     @Override
