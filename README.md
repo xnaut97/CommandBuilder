@@ -6,7 +6,7 @@ Register/unregister command at runtime without writing in ``plugin.yml``
 
 # ❏ Installation
 
-Copy and paste `CommandBuilder.java` to your project
+Paste `CommandBuilder.java` and `ClickableText.java` to your project
 ***
 
 # ❏ Instruction
