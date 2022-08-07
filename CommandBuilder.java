@@ -1,5 +1,6 @@
+package dev.tezvn.timeditem.commands;
+
 import com.google.common.collect.Lists;
-import dev.tezvn.elitechest.utils.ClickableText;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -8,13 +9,12 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.command.defaults.BukkitCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -26,9 +26,9 @@ public class CommandBuilder extends BukkitCommand {
 
     private final JavaPlugin plugin;
 
-    private UUID uniqueId;
+    private final UUID uniqueId;
 
-    private List<SubCommand> subCommands;
+    private final List<SubCommand> subCommands;
 
     private String noPermissionsMessage;
 
@@ -46,7 +46,7 @@ public class CommandBuilder extends BukkitCommand {
 
     private int helpSuggestions;
 
-    public CommandBuilder(JavaPlugin plugin, @NotNull String name, @NotNull String description, @NotNull String usageMessage, @NotNull List<String> aliases) {
+    public CommandBuilder(JavaPlugin plugin, String name, String description, String usageMessage, List<String> aliases) {
         super(name.toLowerCase(), description, usageMessage,
                 aliases.stream()
                         .map(String::toLowerCase)
@@ -57,7 +57,7 @@ public class CommandBuilder extends BukkitCommand {
     }
 
     @Override
-    public boolean execute(@NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String[] args) {
+    public boolean execute(CommandSender sender, String commandLabel, String[] args) {
         if (!(sender instanceof Player)) {
             // Consoleo
             if (args.length > 0) {
@@ -105,20 +105,25 @@ public class CommandBuilder extends BukkitCommand {
             }
 
             SubCommand command = optCommand.get();
+            String permission = command.getPermission();
+            if(permission == null) {
+                command.playerExecute(sender, args);
+                return true;
+            }
             if (!player.hasPermission(command.getPermission())) {
                 sender.sendMessage(this.noPermissionsMessage);
                 return true;
             }
 
-            optCommand.get().playerExecute(sender, args);
+            command.playerExecute(sender, args);
         }
         return true;
     }
 
     @Override
-    public List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String[] args)
+    public List<String> tabComplete(CommandSender sender, String alias, String[] args)
             throws IllegalArgumentException {
-        return new CommandCompleter(this).onTabComplete(sender, alias, args);
+        return new CommandCompleter(this).onTabComplete(sender, args);
     }
 
     /**
@@ -188,8 +193,15 @@ public class CommandBuilder extends BukkitCommand {
         cmField.setAccessible(true);
         CommandMap cm = (CommandMap) cmField.get(Bukkit.getServer());
         cmField.setAccessible(false);
-        Method method = cm.getClass().getDeclaredMethod("getKnownCommands");
-        return (Map<String, Command>) method.invoke(cm, new Object[]{});
+        Map<String, Command> knownCommands;
+        try {
+            knownCommands = (Map<String, Command>) cm.getClass().getDeclaredMethod("getKnownCommands").invoke(cm);
+        }catch (Exception e) {
+            Field field = SimpleCommandMap.class.getDeclaredField("knownCommands");
+            field.setAccessible(true);
+            knownCommands = (Map<String, Command>) field.get(cm);
+        }
+        return knownCommands;
     }
 
     /**
@@ -360,37 +372,42 @@ public class CommandBuilder extends BukkitCommand {
 
     protected static class CommandCompleter {
 
-        private List<SubCommand> commands;
+        private final List<SubCommand> commands;
 
         protected CommandCompleter(CommandBuilder handle) {
             this.commands = handle.getSubCommands();
         }
 
         private List<String> getMainSuggestions(CommandSender sender, String start) {
-            return this.commands.stream().filter(new Predicate<SubCommand>() {
-                        @Override
-                        public boolean test(SubCommand command) {
-                            if (start.length() < 1) {
-                                return sender.hasPermission(command.getPermission());
-                            } else {
-                                return command.getName().startsWith(start) && sender.hasPermission(command.getPermission());
-                            }
-                        }
-                    })
+            return this.commands.stream().filter(command -> {
+                boolean match = command.getName().startsWith(start);
+                if(!match)
+                    return false;
+                if(command.getName() == null || command.getName().isEmpty())
+                    return false;
+                if(command.getPermission() == null || command.getPermission().isEmpty())
+                    return true;
+                return sender.hasPermission(command.getPermission());
+            })
                     .map(SubCommand::getName)
                     .collect(Collectors.toList());
         }
 
         private List<String> getSubSuggestions(CommandSender sender, String[] args) {
-            Optional<SubCommand> optCommand = this.commands.stream()
-                    .filter(command -> command.getName().equalsIgnoreCase(args[0])
-                            && sender.hasPermission(command.getPermission()))
-                    .findAny();
-
-            return optCommand.map(subCommand -> subCommand.tabComplete(sender, args)).orElse(null);
+            SubCommand subCommand = this.commands.stream()
+                    .filter(command -> {
+                        boolean match = command.getName().equalsIgnoreCase(args[0]);
+                        if(!match)
+                            return false;
+                        if(command.getPermission() == null || command.getPermission().isEmpty())
+                            return true;
+                        return sender.hasPermission(command.getPermission());
+                    })
+                    .findAny().orElse(null);
+            return subCommand == null ? null : subCommand.tabComplete(sender, args);
         }
 
-        public List<String> onTabComplete(CommandSender sender, String label, String[] args) {
+        public List<String> onTabComplete(CommandSender sender, String[] args) {
             if (args.length == 1) {
                 return this.getMainSuggestions(sender, args[0]);
             } else if (args.length > 1) {
@@ -433,7 +450,7 @@ public class CommandBuilder extends BukkitCommand {
 
         @Override
         public List<String> getAliases() {
-            return Arrays.asList("?");
+            return Collections.singletonList("?");
         }
 
         @Override
@@ -477,9 +494,7 @@ public class CommandBuilder extends BukkitCommand {
         private int getPage(String str) {
             try {
                 int page = Integer.parseInt(str);
-                if (page < 0)
-                    return 0;
-                return page;
+                return Math.max(page, 0);
             } catch (Exception e) {
                 return 0;
             }
@@ -487,7 +502,11 @@ public class CommandBuilder extends BukkitCommand {
 
         private void handleCommands(CommandSender sender, int page) {
             List<SubCommand> filter = subCommands.stream()
-                    .filter(c -> sender.hasPermission(c.getPermission()))
+                    .filter(command -> {
+                        if(command.getPermission() == null || command.getPermission().isEmpty())
+                            return true;
+                        return sender.hasPermission(command.getPermission());
+                    })
                     .collect(Collectors.toList());
             int max = Math.min(handle.getHelpSuggestions() * (page + 1), filter.size());
             if (handle.getHelpHeader() != null)
@@ -495,38 +514,46 @@ public class CommandBuilder extends BukkitCommand {
             for (int i = page * handle.getHelpSuggestions(); i < max; i++) {
                 SubCommand command = filter.get(i);
                 TextComponent clickableCommand = createClickableCommand(command);
-                sender.spigot().sendMessage(clickableCommand);
+                if(sender instanceof Player)
+                    ((Player) sender).spigot().sendMessage(clickableCommand);
+                else
+                    sender.sendMessage(handle.getHelpCommandColor() + "/" + handle.getUsage() + ": "
+                            + handle.getHelpDescriptionColor() + command.getDescription());
             }
-            TextComponent previousPage = createClickableButton("&e&l«",
-                    "/" + handle.getName() + " help " + (page - 1),
-                    "&7Previous page");
-            TextComponent nextPage = createClickableButton("&e&l»",
-                    "/" + handle.getName() + " help " + (page + 1),
-                    "&7Next page");
-            TextComponent pageInfo = createClickableButton(" &e&l" + (page + 1) + " ",
-                    null, "&7You're in page " + (page + 1));
-            ClickableText spacing = new ClickableText("                       ");
-            boolean canNextPage = handle.getHelpSuggestions() * (page + 1) < filter.size();
-            if (page < 1) {
-                if (canNextPage)
-                    sender.spigot().sendMessage(spacing.build(), pageInfo, nextPage);
-                else
-                    sender.spigot().sendMessage(spacing.build(), pageInfo);
-            } else {
-                if (canNextPage)
-                    sender.spigot().sendMessage(spacing.build(), previousPage, pageInfo, nextPage);
-                else
-                    sender.spigot().sendMessage(spacing.build(), previousPage, pageInfo);
+            if(sender instanceof Player) {
+                Player player = (Player) sender;
+                TextComponent previousPage = createClickableButton("&e&l«",
+                        "/" + handle.getName() + " help " + (page - 1),
+                        "&7Previous page");
+                TextComponent nextPage = createClickableButton("&e&l»",
+                        "/" + handle.getName() + " help " + (page + 1),
+                        "&7Next page");
+                TextComponent pageInfo = createClickableButton(" &e&l" + (page + 1) + " ",
+                        null, "&7You're in page " + (page + 1));
+                ClickableText spacing = new ClickableText("                       ");
+                boolean canNextPage = handle.getHelpSuggestions() * (page + 1) < filter.size();
+                if (page < 1) {
+                    if (canNextPage)
+                        player.spigot().sendMessage(spacing.build(), pageInfo, nextPage);
+                    else
+                        player.spigot().sendMessage(spacing.build(), pageInfo);
+
+                } else {
+                    if (canNextPage)
+                        player.spigot().sendMessage(spacing.build(), previousPage, pageInfo, nextPage);
+                    else
+                        player.spigot().sendMessage(spacing.build(), previousPage, pageInfo);
+                }
             }
             if (handle.getHelpFooter() != null)
                 sender.sendMessage(handle.getHelpFooter());
         }
 
         private TextComponent createClickableCommand(SubCommand command) {
-            return new ClickableText(handle.getHelpCommandColor() + "/" + handle.getName() + " " + command.getName() + ": "
+            return new ClickableText(handle.getHelpCommandColor() + "/" + command.getUsage() + ": "
                     + handle.getHelpDescriptionColor() + command.getDescription())
                     .setHoverAction(HoverEvent.Action.SHOW_TEXT, "&7Click to get this command.")
-                    .setClickAction(ClickEvent.Action.SUGGEST_COMMAND, "/" + handle.getName() + " " + command.getName())
+                    .setClickAction(ClickEvent.Action.SUGGEST_COMMAND, command.getUsage())
                     .build();
         }
 
@@ -537,6 +564,48 @@ public class CommandBuilder extends BukkitCommand {
             if (clickAction != null)
                 clickableText.setClickAction(ClickEvent.Action.RUN_COMMAND, clickAction);
             return clickableText.build();
+        }
+    }
+
+    protected static class ClickableText {
+
+        private String text;
+
+        private HoverEvent hoverAction;
+
+        private ClickEvent clickAction;
+
+        public ClickableText(String text) {
+            Objects.requireNonNull(text);
+            this.text = text.replace("&", "§");
+        }
+
+        public ClickableText setHoverAction(HoverEvent.Action action, String... content) {
+            TextComponent[] texts = Arrays.stream(content)
+                    .map(e -> new TextComponent(e.replace("&", "§")))
+                    .collect(Collectors.toList()).toArray(new TextComponent[content.length]);
+            this.hoverAction = new HoverEvent(action, texts);
+            return this;
+        }
+
+        public ClickableText setClickAction(ClickEvent.Action action, String value) {
+            this.clickAction = new ClickEvent(action, value);
+            return this;
+        }
+
+        public ClickableText setText(String text) {
+            this.text = text;
+            return this;
+        }
+
+        public TextComponent build() {
+            TextComponent component = new TextComponent();
+            component.setText(this.text);
+            if (this.hoverAction != null)
+                component.setHoverEvent(this.hoverAction);
+            if (this.clickAction != null)
+                component.setClickEvent(this.clickAction);
+            return component;
         }
     }
 }
