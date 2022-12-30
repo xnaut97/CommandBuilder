@@ -1,6 +1,6 @@
-package dev.tezvn.timeditem.commands;
-
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import me.daaz.vapor.utils.ClickableText;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -12,101 +12,104 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.command.defaults.BukkitCommand;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.permissions.Permission;
+import org.bukkit.permissions.PermissionDefault;
+import org.bukkit.plugin.Plugin;
 
 import java.lang.reflect.Field;
-import java.util.*;
-import java.util.function.Predicate;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
  * @author TezVN
  */
-public class CommandBuilder extends BukkitCommand {
+public abstract class AbstractCommand extends BukkitCommand {
 
-    private final JavaPlugin plugin;
+    private final Plugin plugin;
 
-    private final UUID uniqueId;
+    private final UUID uniqueId = UUID.randomUUID();
 
-    private final List<SubCommand> subCommands;
+    private final Map<String, SubCommand> subCommands = Maps.newHashMap();
 
-    private String noPermissionsMessage;
+    private String noPermissionsMessage = "&cYou don't have permission to access.";
 
-    private String noSubCommandFoundMessage;
+    private String noSubCommandFoundMessage = "&cCommand not found, please use /" + getName() + " help for more.";
 
-    private String noConsoleAllowMessage;
+    private String noConsoleAllowMessage = "&cThis command is for console only.";
 
     private String helpHeader;
 
     private String helpFooter;
 
-    private String helpCommandColor;
+    private String helpCommandColor = "&a";
 
-    private String helpDescriptionColor;
+    private String helpDescriptionColor = "&7";
 
-    private int helpSuggestions;
+    private int helpSuggestions = 5;
 
-    public CommandBuilder(JavaPlugin plugin, String name, String description, String usageMessage, List<String> aliases) {
+    public AbstractCommand(Plugin plugin, String name, String description, String usageMessage, List<String> aliases) {
         super(name.toLowerCase(), description, usageMessage,
                 aliases.stream()
                         .map(String::toLowerCase)
                         .collect(Collectors.toList()));
-        this.uniqueId = UUID.randomUUID();
         this.plugin = plugin;
-        this.subCommands = Lists.newArrayList();
+        this.helpHeader = "- - - - - - - - - -=[ " + plugin.getName() + " ]=- - - - - - - - - -";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < plugin.getName().length(); i++) {
+            sb.append("❘");
+        }
+        this.helpFooter = "- - - - - - - - - -=[ " + sb + " ]=- - - - - - - - - -";
+    }
+
+    public Plugin getPlugin() {
+        return plugin;
+    }
+
+    public void onSingleExecute(CommandSender sender, String[] args) {
+
     }
 
     @Override
     public boolean execute(CommandSender sender, String commandLabel, String[] args) {
         if (!(sender instanceof Player)) {
-            // Consoleo
-            if (args.length > 0) {
+            if (args.length == 0)
+                onSingleExecute(sender, args);
+            else {
                 String name = args[0];
-                Optional<SubCommand> optCommand = this.subCommands.stream().filter(new Predicate<SubCommand>() {
-                    @Override
-                    public boolean test(SubCommand command) {
-                        boolean matchAliases = command.getAliases().contains(name);
-                        return command.getName().equalsIgnoreCase(name) || matchAliases;
-                    }
-                }).findAny();
-
-                if (!optCommand.isPresent()) {
+                SubCommand command = this.subCommands.entrySet().stream()
+                        .filter(entry -> entry.getKey().equalsIgnoreCase(name))
+                        .map(Map.Entry::getValue).findAny().orElse(null);
+                if (command == null) {
                     sender.sendMessage(this.noSubCommandFoundMessage);
                     return true;
                 }
-
-                SubCommand command = optCommand.get();
-
                 if (!command.allowConsole()) {
                     sender.sendMessage(this.noConsoleAllowMessage);
                     return true;
                 }
-
-                optCommand.get().consoleExecute(sender, args);
+                command.consoleExecute(sender, args);
             }
 
             return true;
         }
 
         Player player = (Player) sender;
-        if (args.length > 0) {
+        if (args.length == 0)
+            onSingleExecute(sender, args);
+        else {
             String name = args[0];
-            Optional<SubCommand> optCommand = this.subCommands.stream().filter(new Predicate<SubCommand>() {
-                @Override
-                public boolean test(SubCommand command) {
-                    boolean matchAliases = command.getAliases().contains(name);
-                    return command.getName().equalsIgnoreCase(name) || matchAliases;
-                }
-            }).findAny();
-
-            if (!optCommand.isPresent()) {
+            SubCommand command = this.subCommands.entrySet().stream()
+                    .filter(entry -> entry.getKey().equalsIgnoreCase(name))
+                    .map(Map.Entry::getValue).findAny().orElse(null);
+            if (command == null) {
                 sender.sendMessage(this.noSubCommandFoundMessage);
                 return true;
             }
-
-            SubCommand command = optCommand.get();
             String permission = command.getPermission();
-            if(permission == null) {
+            if (permission == null) {
                 command.playerExecute(sender, args);
                 return true;
             }
@@ -114,7 +117,6 @@ public class CommandBuilder extends BukkitCommand {
                 sender.sendMessage(this.noPermissionsMessage);
                 return true;
             }
-
             command.playerExecute(sender, args);
         }
         return true;
@@ -131,21 +133,29 @@ public class CommandBuilder extends BukkitCommand {
      *
      * @param commands Sub command to add
      */
-    public CommandBuilder addSubCommand(SubCommand... commands) {
-        List<SubCommand> filter = Arrays.asList(commands).stream()
-                .filter(c -> !isRegistered(c)).collect(Collectors.toList());
-        this.subCommands.addAll(filter);
+    public AbstractCommand addSubCommand(SubCommand... commands) {
+        for (SubCommand command : commands) {
+            if(command.getName() == null || command.getName().isEmpty())
+                continue;
+            this.subCommands.putIfAbsent(command.getName(), command);
+            if(command.getAliases() != null && !command.getAliases().isEmpty()) {
+                for (String alias : command.getAliases()) {
+                    this.subCommands.putIfAbsent(alias, command);
+                }
+            }
+            if(command.getPermission() == null)
+                continue;
+            Bukkit.getPluginManager().addPermission(new Permission(
+                    command.getPermission(), command.getPermissionDescription(),
+                    command.getPermissionDefault(), command.getChildPermissions()));
+        }
         return this;
-    }
-
-    public boolean isRegistered(SubCommand command) {
-        return this.subCommands.stream().anyMatch(c -> c.getName().equals(command.getName()));
     }
 
     /**
      * Register command to server in {@code onEnable()} method
      */
-    public CommandBuilder register() {
+    public AbstractCommand register() {
         try {
             addSubCommand(new AbstractHelpCommand(this));
             if (!getKnownCommands().containsKey(getName())) {
@@ -168,13 +178,17 @@ public class CommandBuilder extends BukkitCommand {
     /**
      * Unregister command from server in {@code onDisable()} method
      */
-    public CommandBuilder unregister() {
+    public AbstractCommand unregister() {
         try {
             unregister(getCommandMap());
-            getKnownCommands().entrySet().removeIf(entry ->
-                    entry.getValue() instanceof CommandBuilder
-                            && ((CommandBuilder) entry.getValue()).getUniqueId().equals(this.getUniqueId())
-            );
+            getKnownCommands().entrySet().removeIf(entry -> {
+                if(!(entry.getValue() instanceof AbstractCommand))
+                    return false;
+                AbstractCommand command = (AbstractCommand) entry.getValue();
+                command.getSubCommands().entrySet().stream().filter(e -> e.getValue().getPermission() != null)
+                        .forEachOrdered(c -> Bukkit.getPluginManager().removePermission(entry.getValue().getPermission()));
+                return command.getUniqueId().equals(this.getUniqueId());
+            });
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -196,7 +210,7 @@ public class CommandBuilder extends BukkitCommand {
         Map<String, Command> knownCommands;
         try {
             knownCommands = (Map<String, Command>) cm.getClass().getDeclaredMethod("getKnownCommands").invoke(cm);
-        }catch (Exception e) {
+        } catch (Exception e) {
             Field field = SimpleCommandMap.class.getDeclaredField("knownCommands");
             field.setAccessible(true);
             knownCommands = (Map<String, Command>) field.get(cm);
@@ -218,8 +232,8 @@ public class CommandBuilder extends BukkitCommand {
      *
      * @param noPermissionsMessage Message to set
      */
-    public CommandBuilder setNoPermissionsMessage(String noPermissionsMessage) {
-        this.noPermissionsMessage = noPermissionsMessage.replace("&", "§");
+    public AbstractCommand setNoPermissionsMessage(String noPermissionsMessage) {
+        this.noPermissionsMessage = noPermissionsMessage;
         return this;
     }
 
@@ -228,8 +242,8 @@ public class CommandBuilder extends BukkitCommand {
      *
      * @param noSubCommandFoundMessage Message to set
      */
-    public CommandBuilder setNoSubCommandFoundMessage(String noSubCommandFoundMessage) {
-        this.noSubCommandFoundMessage = noSubCommandFoundMessage.replace("&", "§");
+    public AbstractCommand setNoSubCommandFoundMessage(String noSubCommandFoundMessage) {
+        this.noSubCommandFoundMessage = noSubCommandFoundMessage;
         return this;
     }
 
@@ -238,8 +252,8 @@ public class CommandBuilder extends BukkitCommand {
      *
      * @param noConsoleAllowMessage Message to set
      */
-    public CommandBuilder setNoConsoleAllowMessage(String noConsoleAllowMessage) {
-        this.noConsoleAllowMessage = noConsoleAllowMessage.replace("&", "§");
+    public AbstractCommand setNoConsoleAllowMessage(String noConsoleAllowMessage) {
+        this.noConsoleAllowMessage = noConsoleAllowMessage;
         return this;
     }
 
@@ -247,10 +261,8 @@ public class CommandBuilder extends BukkitCommand {
         return helpSuggestions;
     }
 
-    public CommandBuilder setHelpSuggestions(int helpSuggestions) {
-        this.helpSuggestions = helpSuggestions;
-        if (this.helpSuggestions < 1)
-            return setHelpSuggestions(5);
+    public AbstractCommand setHelpSuggestions(int helpSuggestions) {
+        this.helpSuggestions = Math.max(5, helpSuggestions);
         return this;
     }
 
@@ -258,8 +270,8 @@ public class CommandBuilder extends BukkitCommand {
         return this.helpHeader;
     }
 
-    public CommandBuilder setHelpHeader(String helpHeader) {
-        this.helpHeader = helpHeader.replace("&", "§");
+    public AbstractCommand setHelpHeader(String helpHeader) {
+        this.helpHeader = helpHeader;
         return this;
     }
 
@@ -267,8 +279,8 @@ public class CommandBuilder extends BukkitCommand {
         return this.helpFooter;
     }
 
-    public CommandBuilder setHelpFooter(String helpFooter) {
-        this.helpFooter = helpFooter.replace("&", "§");
+    public AbstractCommand setHelpFooter(String helpFooter) {
+        this.helpFooter = helpFooter;
         return this;
     }
 
@@ -276,12 +288,12 @@ public class CommandBuilder extends BukkitCommand {
         return helpCommandColor == null ? "&a" : this.helpCommandColor;
     }
 
-    public CommandBuilder setHelpCommandColor(ChatColor color) {
+    public AbstractCommand setHelpCommandColor(ChatColor color) {
         return setHelpCommandColor(String.valueOf(color.getChar()));
     }
 
-    public CommandBuilder setHelpCommandColor(String color) {
-        this.helpCommandColor = color.replace("&", "§");
+    public AbstractCommand setHelpCommandColor(String color) {
+        this.helpCommandColor = color;
         return this;
     }
 
@@ -289,12 +301,12 @@ public class CommandBuilder extends BukkitCommand {
         return helpDescriptionColor == null ? "&7" : this.helpDescriptionColor;
     }
 
-    public CommandBuilder setHelpDescriptionColor(ChatColor color) {
+    public AbstractCommand setHelpDescriptionColor(ChatColor color) {
         return setHelpCommandColor(String.valueOf(color.getChar()));
     }
 
-    public CommandBuilder setHelpDescriptionColor(String color) {
-        this.helpDescriptionColor = color.replace("&", "§");
+    public AbstractCommand setHelpDescriptionColor(String color) {
+        this.helpDescriptionColor = color;
         return this;
     }
 
@@ -303,13 +315,27 @@ public class CommandBuilder extends BukkitCommand {
      *
      * @return List of sub commands
      */
-    public List<SubCommand> getSubCommands() {
-        return subCommands;
+    public Map<String, SubCommand> getSubCommands() {
+        return Collections.unmodifiableMap(this.subCommands);
     }
 
     public static abstract class SubCommand {
 
+        private final Map<String, Boolean> childrens = Maps.newHashMap();
+
         public SubCommand() {
+        }
+
+        public Map<String, Boolean> getChildPermissions() {
+            return Collections.unmodifiableMap(this.childrens);
+        }
+
+        public void addChildPermission(String permission, boolean child) {
+            this.childrens.put(permission, child);
+        }
+
+        public void removeChildPermission(String permission) {
+            this.childrens.remove(permission);
         }
 
         /**
@@ -325,6 +351,20 @@ public class CommandBuilder extends BukkitCommand {
          * @return Sub command permission
          */
         public abstract String getPermission();
+
+        /**
+         * Get description of permission.
+         *
+         * @return Permission description.
+         */
+        public abstract String getPermissionDescription();
+
+        /**
+         * Get permission default of command.
+         *
+         * @return Permission default mode.
+         */
+        public abstract PermissionDefault getPermissionDefault();
 
         /**
          * Get description of sub command
@@ -372,46 +412,38 @@ public class CommandBuilder extends BukkitCommand {
 
     protected static class CommandCompleter {
 
-        private final List<SubCommand> commands;
+        private final Map<String, SubCommand> commands;
 
-        protected CommandCompleter(CommandBuilder handle) {
+        protected CommandCompleter(AbstractCommand handle) {
             this.commands = handle.getSubCommands();
         }
 
-        private List<String> getMainSuggestions(CommandSender sender, String start) {
-            return this.commands.stream().filter(command -> {
-                boolean match = command.getName().startsWith(start);
-                if(!match)
+        private List<SubCommand> getCommands(CommandSender sender, String start) {
+            return this.commands.values().stream().filter(command -> {
+                if(!command.getName().startsWith(start))
                     return false;
-                if(command.getName() == null || command.getName().isEmpty())
-                    return false;
-                if(command.getPermission() == null || command.getPermission().isEmpty())
-                    return true;
-                return sender.hasPermission(command.getPermission());
-            })
-                    .map(SubCommand::getName)
-                    .collect(Collectors.toList());
-        }
-
-        private List<String> getSubSuggestions(CommandSender sender, String[] args) {
-            SubCommand subCommand = this.commands.stream()
-                    .filter(command -> {
-                        boolean match = command.getName().equalsIgnoreCase(args[0]);
-                        if(!match)
-                            return false;
-                        if(command.getPermission() == null || command.getPermission().isEmpty())
-                            return true;
-                        return sender.hasPermission(command.getPermission());
-                    })
-                    .findAny().orElse(null);
-            return subCommand == null ? null : subCommand.tabComplete(sender, args);
+                boolean hasPermission = command.getPermission() == null || !command.getPermission().isEmpty();
+                return !hasPermission || sender.hasPermission(command.getPermission());
+            }).collect(Collectors.toList());
         }
 
         public List<String> onTabComplete(CommandSender sender, String[] args) {
-            if (args.length == 1) {
-                return this.getMainSuggestions(sender, args[0]);
-            } else if (args.length > 1) {
-                return this.getSubSuggestions(sender, args);
+            if(args.length == 0)
+                return null;
+            List<SubCommand> commands = getCommands(sender, args[0]);
+            if(!commands.isEmpty()) {
+                if (args.length == 1)
+                    return commands.stream().map(SubCommand::getName).collect(Collectors.toList());
+                else {
+                    SubCommand found = commands.stream().filter(c -> {
+                        boolean matchAlias = false;
+                        if (!c.getAliases().isEmpty())
+                            matchAlias = c.getAliases().stream().anyMatch(alias -> alias.equalsIgnoreCase(args[0]));
+                        return c.getName().equalsIgnoreCase(args[0]) || matchAlias;
+                    }).findAny().orElse(null);
+                    if (found != null)
+                        return found.tabComplete(sender, args);
+                }
             }
             return null;
         }
@@ -419,11 +451,11 @@ public class CommandBuilder extends BukkitCommand {
 
     protected static class AbstractHelpCommand extends SubCommand {
 
-        private final List<SubCommand> subCommands;
+        private final Map<String, SubCommand> subCommands;
 
-        private final CommandBuilder handle;
+        private final AbstractCommand handle;
 
-        public AbstractHelpCommand(CommandBuilder handle) {
+        public AbstractHelpCommand(AbstractCommand handle) {
             this.handle = handle;
             this.subCommands = handle.getSubCommands();
         }
@@ -435,7 +467,17 @@ public class CommandBuilder extends BukkitCommand {
 
         @Override
         public String getPermission() {
-            return "";
+            return handle.getName() + ".command.help";
+        }
+
+        @Override
+        public String getPermissionDescription() {
+            return "Access help command.";
+        }
+
+        @Override
+        public PermissionDefault getPermissionDefault() {
+            return PermissionDefault.TRUE;
         }
 
         @Override
@@ -445,7 +487,7 @@ public class CommandBuilder extends BukkitCommand {
 
         @Override
         public String getUsage() {
-            return "&7Syntax: &6/" + handle.getName() + " help <page>";
+            return handle.getName() + " help [page]";
         }
 
         @Override
@@ -501,26 +543,23 @@ public class CommandBuilder extends BukkitCommand {
         }
 
         private void handleCommands(CommandSender sender, int page) {
-            List<SubCommand> filter = subCommands.stream()
-                    .filter(command -> {
-                        if(command.getPermission() == null || command.getPermission().isEmpty())
-                            return true;
-                        return sender.hasPermission(command.getPermission());
-                    })
-                    .collect(Collectors.toList());
+            List<SubCommand> filter = subCommands.values().stream().filter(command -> {
+                        boolean hasPermission = command.getPermission() != null || !command.getPermission().isEmpty();
+                        return !hasPermission || sender.hasPermission(command.getPermission());
+                    }).collect(Collectors.toList());
             int max = Math.min(handle.getHelpSuggestions() * (page + 1), filter.size());
             if (handle.getHelpHeader() != null)
                 sender.sendMessage(handle.getHelpHeader());
             for (int i = page * handle.getHelpSuggestions(); i < max; i++) {
                 SubCommand command = filter.get(i);
                 TextComponent clickableCommand = createClickableCommand(command);
-                if(sender instanceof Player)
+                if (sender instanceof Player)
                     ((Player) sender).spigot().sendMessage(clickableCommand);
                 else
                     sender.sendMessage(handle.getHelpCommandColor() + "/" + handle.getUsage() + ": "
                             + handle.getHelpDescriptionColor() + command.getDescription());
             }
-            if(sender instanceof Player) {
+            if (sender instanceof Player) {
                 Player player = (Player) sender;
                 TextComponent previousPage = createClickableButton("&e&l«",
                         "/" + handle.getName() + " help " + (page - 1),
@@ -553,7 +592,7 @@ public class CommandBuilder extends BukkitCommand {
             return new ClickableText(handle.getHelpCommandColor() + "/" + command.getUsage() + ": "
                     + handle.getHelpDescriptionColor() + command.getDescription())
                     .setHoverAction(HoverEvent.Action.SHOW_TEXT, "&7Click to get this command.")
-                    .setClickAction(ClickEvent.Action.SUGGEST_COMMAND, command.getUsage())
+                    .setClickAction(ClickEvent.Action.SUGGEST_COMMAND, "/" + command.getUsage())
                     .build();
         }
 
@@ -564,48 +603,6 @@ public class CommandBuilder extends BukkitCommand {
             if (clickAction != null)
                 clickableText.setClickAction(ClickEvent.Action.RUN_COMMAND, clickAction);
             return clickableText.build();
-        }
-    }
-
-    protected static class ClickableText {
-
-        private String text;
-
-        private HoverEvent hoverAction;
-
-        private ClickEvent clickAction;
-
-        public ClickableText(String text) {
-            Objects.requireNonNull(text);
-            this.text = text.replace("&", "§");
-        }
-
-        public ClickableText setHoverAction(HoverEvent.Action action, String... content) {
-            TextComponent[] texts = Arrays.stream(content)
-                    .map(e -> new TextComponent(e.replace("&", "§")))
-                    .collect(Collectors.toList()).toArray(new TextComponent[content.length]);
-            this.hoverAction = new HoverEvent(action, texts);
-            return this;
-        }
-
-        public ClickableText setClickAction(ClickEvent.Action action, String value) {
-            this.clickAction = new ClickEvent(action, value);
-            return this;
-        }
-
-        public ClickableText setText(String text) {
-            this.text = text;
-            return this;
-        }
-
-        public TextComponent build() {
-            TextComponent component = new TextComponent();
-            component.setText(this.text);
-            if (this.hoverAction != null)
-                component.setHoverEvent(this.hoverAction);
-            if (this.clickAction != null)
-                component.setClickEvent(this.clickAction);
-            return component;
         }
     }
 }
